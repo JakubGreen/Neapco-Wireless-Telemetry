@@ -11,6 +11,7 @@ from numpy import array, ones, linalg # Import numpy
 import sys
 import os
 from Tkinter import * 
+import tkMessageBox
 from tkFileDialog import asksaveasfilename
 import datetime
 import thread
@@ -58,7 +59,8 @@ class SensorNetwork(Frame):
 		self.bridgeRemove.pack(side = RIGHT)	
 		
 		self.addBridge() # Initialize with one bridge
-	
+		
+		Label(self.bottomFrame, text = "Neapco Components LLC: Charles Lee 2016", font = ("Helvetica","12")).pack(side = BOTTOM)
 		
 	def addBridge(self):
 		a = Bridge(self.ip.get(),0, master=self) # Create new bridge object
@@ -69,6 +71,8 @@ class SensorNetwork(Frame):
 		
 	### Simultaneously starts logging for all selected bridges
 	def startLogging(self):
+		if not tkMessageBox.askyesno("Start Logging","Are you sure?\nFiles may be overwritten"):
+			return
 		self.startButton.configure(state = DISABLED)
 		self.stopButton.configure(state = NORMAL)
 		for b in self.bridges: ### Loop through list of sensors
@@ -182,28 +186,27 @@ class Bridge():
 		isFirst = True ### Boolean to track start time (time offset)
 		timeOffset = 0
 		prevTime = 0		
+		prevAdjusted = 0
 		while True: ### Read packets until told to stop
-			if self.isLogging.get():
-				data, addr = sock.recvfrom(1024) # buffer size is 1024 bytes
-				packetSplit = data.decode('utf-8')
-				lineSplit = packetSplit.split('\n')
-				
-				for line in lineSplit:
-					fields = line.split(',')
-					if isFirst:
-						timeOffset = int(fields[0]) # Take the time on the very first packet and store it in to timeOffset
-						isFirst = False
-					calibratedData = round(self.mSlope.get()*int(fields[1]) + self.yIntercept.get(),1)
-					adjustedTime = int(fields[0])-timeOffset # Subtracting every subsequent packet by the timeOffset
-					if(adjustedTime < prevTime): # If the processor clock has overflowed
-						timeOffset = timeOffset - prevTime
-					prevTime = adjustedTime
-					fileLog.write(str(adjustedTime) + '\t' + str(calibratedData) + n) # Writing each datapoint to file
-					#print(self.stringFormat.format(str(adjustedTime),calibratedData))	# Live output for diagnostics			
-			else:		
-				fileLog.close()	
-				sock.close()
-				return				
+			data, addr = sock.recvfrom(1024) # buffer size is 1024 bytes
+			packetSplit = data.decode('utf-8')
+			lineSplit = packetSplit.split('\n')
+			for line in lineSplit:				
+				fields = line.split(',')
+				calibratedData = round(self.mSlope.get()*int(fields[1]) + self.yIntercept.get(),1)
+				if isFirst:
+					timeOffset = (-1)*int(fields[0]) # Take the time on the very first packet and store it in to timeOffset
+					isFirst = False
+				if(int(fields[0]) < prevTime): # If the processor clock has overflowed
+					timeOffset = prevAdjusted # Then edit the time offset value
+					fileLog.write("Offset Changed" + str(timeOffset))
+				adjustedTime = int(fields[0])+timeOffset # Shift every subsequent packet by the timeOffset
+				#fileLog.write(str(adjustedTime) + '\t' + str(calibratedData) + '\t' + str(timeOffset) + '\t' + str(prevAdjusted) + '\t' +  str(fields[0]) + '\t' + str(prevTime) + n) # Writing each datapoint to file
+				fileLog.write(str(adjustedTime) + '\t' + str(calibratedData) + n) 
+				prevTime = int(fields[0])
+				prevAdjusted = adjustedTime
+				#print(self.stringFormat.format(str(adjustedTime),calibratedData))	# Live output for diagnostics	
+				#print str(self.portVar.get())+ ": " + str(fields[0]) + ", " + str(adjustedTime) + "," + str(timeOffset)					
 	def createWidgets(self): 
 		check = Checkbutton(self.x,text = "Include",variable = self.checkVar)	
 		check.pack(side=LEFT)
@@ -338,12 +341,7 @@ class Bridge():
 	def reopenWindow(self, frame):
 		frame.update()
 		frame.reiconify()
-		
-	def plot(self) :
-		t = Toplevel()
-		t.wm_title("PORT: " + str(self.portVar.get()) + " Plot")
-		
-		
+			
 class calibrationPoint(Frame) :
 	def __init__(self, master):
 		self.bitValue = DoubleVar(0)
@@ -364,7 +362,7 @@ class calibrationPoint(Frame) :
 ###### Running code
 if __name__ == '__main__':
 	root = Tk()
-	root.wm_title("Feather Receiver")
+	root.wm_title("Gage Logger")
 	app = SensorNetwork(master=root)
 	app.mainloop()
 
