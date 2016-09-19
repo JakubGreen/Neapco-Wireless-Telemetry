@@ -13,8 +13,6 @@ import os
 from Tkinter import * 
 import tkMessageBox
 from tkFileDialog import asksaveasfilename
-from tkFileDialog import askopenfilename
-from tkFileDialog import askdirectory
 import datetime
 import thread
 from functools import partial
@@ -37,62 +35,37 @@ class SensorNetwork(Frame):
 		self.ip = StringVar()
 		self.ip.set("0.0.0.0")	
 		self.isLogging = BooleanVar()
-		self.folder = StringVar()
 		
 		###### GUI Initialization
 		Frame.__init__(self,master, bd = 10)
 		self.pack(side = TOP)
 		#self.wm_title("Feather Receiver")
 		
-		
-		
 		self.topFrame = Frame(master=self, padx = 8,pady = 8, bd = 2, relief = GROOVE)
 		self.topFrame.pack(side = TOP, fill = X)
-		self.startButton = Button(self.topFrame, text = "Start Logging", command = self.startLogging, width = 14)
+		self.startButton = Button(self.topFrame, text = "Start Logging", command = self.startLogging, width = 18)
 		self.startButton.pack(side = LEFT)
 		
-		self.stopButton = Button(self.topFrame, text = "Stop Logging", command = self.stopLogging, width = 14, state = DISABLED)
+		self.stopButton = Button(self.topFrame, text = "Stop Logging", command = self.stopLogging, width = 18, state = DISABLED)
 		self.stopButton.pack(side = RIGHT)
 		
-		#Button(self.topFrame, text = "Multi-Plot", command = self.plotMultiple).pack(side = LEFT)
-		Button(self.topFrame, text = "Plot...", command = self.plot).pack(side = LEFT)
-		
-		Label(self.topFrame, text = "Log Folder: ").pack(side = LEFT)
-		Entry(self.topFrame, width = 30, textvariable = self.folder, text = self.folder.get(), state = DISABLED).pack(side = LEFT)
-		Button(self.topFrame, text = "Browse...", command = self.browseFolder).pack(side = LEFT)
+		Button(self.topFrame, text = "Multi-Plot", command = self.plotMultiple).pack(side = LEFT)
 		
 		self.bottomFrame = Frame(master=self,padx = 8, pady = 8, bd = 2, relief = GROOVE)
 		self.bottomFrame.pack(side = BOTTOM, fill = X)
-		self.bridgeButton = Button(self.bottomFrame, text = "Add Bridge", command = self.addBridge, width = 14)
+		self.bridgeButton = Button(self.bottomFrame, text = "Add Bridge", command = self.addBridge, width = 18)
 		self.bridgeButton.pack(side = LEFT)
-		self.bridgeRemove = Button(self.bottomFrame, text = "Remove Bridge", command = self.removeBridge, width = 14)
+		self.bridgeRemove = Button(self.bottomFrame, text = "Remove Bridge", command = self.removeBridge, width = 18)
 		self.bridgeRemove.pack(side = RIGHT)	
 		
-		#self.addBridge() # Initialize with one bridge
+		self.addBridge() # Initialize with one bridge
 		
-		Label(self.bottomFrame, text = "Neapco Components LLC: Charles Lee\t2016", font = ("Helvetica","12"), padx = 50).pack(side = BOTTOM)
+		Label(self.bottomFrame, text = "Neapco Components LLC: Charles Lee\t2016", font = ("Helvetica","12")).pack(side = BOTTOM)
 		
-		menubar = Menu(self)
-		master.config(menu=menubar)
-		
-		filemenu = Menu(menubar, tearoff=0)
-		master.config(menu=filemenu)
-		filemenu.add_command(label = "Save", command = self.saveFile)
-		filemenu.add_command(label = "Open", command = self.openFile)
-		
-	def browseFolder(self):
-		path = askdirectory()
-		self.folder.set(path)
-		print self.folder.get()
-		os.chdir("/")
-		if os.path.exists(self.folder.get()) is False:
-			os.mkdir(self.folder.get())
-		os.chdir(self.folder.get())
 	def addBridge(self):
-		a = Bridge(self.ip.get(),0, self.folder.get(),master=self) # Create new bridge object
+		a = Bridge(self.ip.get(),0, master=self) # Create new bridge object
 		a.x.pack(side = TOP) # Pack it to the top of the window
 		self.bridges.append(a) # Add the object to self.bridges
-		return a
 	def removeBridge(self):
 		self.bridges.pop().x.pack_forget()
 		
@@ -115,29 +88,7 @@ class SensorNetwork(Frame):
 		for p in self.processes: ### Iterate through list of process objects
 			p.terminate() ### Terminate each process
 			p.join()		
-	def singlePlot(self, path):
-		f = open(path, "r")
-		content = f.readlines()
-		time  = []
-		torque = []
-		
-		counter = 0
-		for line in content: ### Find which line the data starts on
-			counter = counter + 1
-			if line.find("DM_Start=") != -1:
-				break
-				
-		for x in xrange(counter,len(content)-1): ### Starting on the line number found from previous loop
-			y = content[x].split("\t") 
-			time.append(y[0])
-			torque.append(y[1])	
-		#if show:		
-		plt.plot(time,torque)
-		#plt.xlabel("Time (microseconds)")
-		#plt.ylabel("Torque (inch-pounds)")
-		#plt.title("Time vs. Torque")
-		#plt.show()
-		return (time,torque)		
+			
 	def plotMultiple(self):
 		for b in self.bridges:
 			if b.checkVar.get():
@@ -147,48 +98,10 @@ class SensorNetwork(Frame):
 		plt.ylabel("Torque (inch-pounds)")
 		plt.title("Time vs. Torque")
 		plt.show()
-	def plot(self):
-		paths = askopenfilename(defaultextension = ".txt", multiple = True)
-		for p in paths:
-			self.singlePlot(p)
-		plt.xlabel("Time (microseconds)")
-		plt.ylabel("Torque (inch-pounds)")
-		plt.title("Time vs. Torque")
-		plt.show()
-	def saveFile(self):
-		path = asksaveasfilename(defaultextension = '.lee', filetypes = [('Configuration Files','.lee')])
-		config = open(path, "w")
-		config.write(self.folder.get()+ n)
-		for x in self.bridges :
-			config.write(str(x) + n)
-		config.close()
-	def openFile(self):
-		path = askopenfilename(defaultextension = ".lee", filetypes = [('Configuration Files','.lee')])
-		config = open(path, "r")
-		lines = config.read().split(n)
-		self.folder.set(lines[0])
-		
-		os.chdir("/")
-		if os.path.exists(self.folder.get()) is False:
-			os.mkdir(self.folder.get())
-		os.chdir(self.folder.get())
-		
-		for b in xrange(len(self.bridges)):
-			self.removeBridge()
-		for l in range(1,len(lines)-1):
-			fields = lines[l].split(",")
-			b = self.addBridge()
-			b.portVar.set(int(fields[0]))
-			b.name.set(fields[1])
-			b.mSlope.set(float(fields[2]))
-			b.yIntercept.set(float(fields[3]))	
-			b.ip = self.ip.get()
-			b.folder = str(lines[0])
-		config.close()
 		
 class Bridge():
 	stringFormat = "{} \t {}"
-	def __init__(self,ip,port,folderPath,master):
+	def __init__(self,ip,port,master):
 		###### Tkinter Varibales
 		self.x = Frame()
 		self.isLogging = BooleanVar()
@@ -196,11 +109,9 @@ class Bridge():
 		self.portVar = IntVar()
 		self.portVar.set(port)
 		self.filePathVar = StringVar()
-		self.name = StringVar()
 		
 		###### Variables
 		self.ip = ip
-		self.folder = folderPath
 		
 		###### Interface Initialization
 		Frame.__init__(self.x,master, bd = 2, padx = 3, pady = 3)
@@ -220,34 +131,25 @@ class Bridge():
 		self.bitEntryList = []
 		self.torqueEntryList = []
 		self.pointList = []
-	def __repr__(self):
-		return str(self.portVar.get()) + "," + self.name.get() + "," + str(self.mSlope.get()) + "," + str(self.yIntercept.get())
+		
 		
 	#### Starts Writing to File
 	def startLogging(self):
 		print('Sampling system on Port: ' + str(self.portVar.get()))
 		self.isLogging.set(True)
-		date = datetime.datetime.now()
-		date = str(date).split(".")[0]
-		space = date.split(" ")
-		date = space[0] + "_" + space[1]
-		colons = date.split(":")
-		date = colons[0]+ "." + colons[1] + "." + colons[2]
-		
+			
 		### Network Connection
 		sock = socket.socket(socket.AF_INET, # Internet
 								socket.SOCK_DGRAM) # UDP
 		sock.bind((self.ip, (self.portVar.get())))
 		
 		### File Setup
-		nameString = str(date) + "_" + self.name.get()
-		fileLog = open(nameString, "w+")
+		fileLog = open(self.filePathVar.get(), "wb")
 		
 		### Necessary formatting for InField compatibility
 		fileLog.write("DM_TestTitle=" + n)
-		fileLog.write(self.filePathVar.get() + n + 'Program Start Time: ' + str(date) + n)
-		fileLog.write("Calibration Values: Slope = " + str(self.mSlope.get()) + ", Y-Intercept = " + str(self.yIntercept.get()) + n
-			+ "Port: " +  str(self.portVar.get()) + n)
+		fileLog.write(str(self.file_path) + n + 'Program Start Time: ' + str(datetime.datetime.now()) + n)
+		fileLog.write("Calibration Values: Slope = " + str(self.mSlope.get()) + ", Y-Intercept = " + str(self.yIntercept.get()) + n)
 		fileLog.write("DM_Operator=" + n)
 		fileLog.write("DM_NumLogChans=2" + n)
 		fileLog.write("DM_NumDataModes=1" + n)
@@ -293,18 +195,13 @@ class Bridge():
 				if(int(fields[0]) < prevTime): # If the processor clock has overflowed
 					timeOffset = prevAdjusted # Then edit the time offset value
 				adjustedTime = int(fields[0])+timeOffset # Shift every subsequent packet by the timeOffset
-				fileLog.write(str(adjustedTime) + '\t' + str(calibratedData) + n) 
+				fileLog.write("{:.6f}".format(float(adjustedTime)/1000000) + '\t' + str(calibratedData) + n) 
 				
 				prevTime = int(fields[0]) 
 				prevAdjusted = adjustedTime					
 	def createWidgets(self): 
-		check = Checkbutton(self.x,text = "Include\t\t",variable = self.checkVar)	
+		check = Checkbutton(self.x,text = "Include",variable = self.checkVar)	
 		check.pack(side=LEFT)
-	
-		Label(self.x, text = "Name").pack(side = LEFT)
-		Entry(self.x, textvariable = self.name, width = 35).pack(side = LEFT)
-		
-
 				
 		L1 = Label(self.x, text = "  PORT")
 		L1.pack(side=LEFT)
@@ -312,24 +209,24 @@ class Bridge():
 		portEntry.pack(side=LEFT)
 		
 		
-		#L1 = Label(self.x, text = "   File")
-		#L1.pack(side=LEFT)
-		#fileEntry = Entry(self.x,width = 35,textvariable = self.filePathVar, text = self.filePathVar.get()) 
-		#fileEntry.pack(side=LEFT)
+		L1 = Label(self.x, text = "   File")
+		L1.pack(side=LEFT)
+		fileEntry = Entry(self.x,width = 35,textvariable = self.filePathVar, text = self.filePathVar.get()) 
+		fileEntry.pack(side=LEFT)
 		
-		#browseButton = Button(self.x, command = self.saveAs, text = "Browse...")
-		#browseButton.pack(side = LEFT)
+		browseButton = Button(self.x, command = self.saveAs, text = "Browse...")
+		browseButton.pack(side = LEFT)
 		
 		calibrateButton = Button(self.x, command = self.calibrate, text = "Calibrate")
 		calibrateButton.pack(side = LEFT)
 		
-		#Button(self.x, command = partial(self.singlePlot,True), text = "Plot").pack(side = LEFT)
+		Button(self.x, command = partial(self.singlePlot,True), text = "Plot").pack(side = LEFT)
 		
 	def calibrate(self):
 		#if len(self.pointList) is not 0:
 					
 		t = Toplevel(self.x) # Open window
-		t.wm_title("\tPORT: " + str(self.portVar.get()) + " Calibration")
+		t.wm_title("PORT: " + str(self.portVar.get()) + " Calibration")
 		
 		a = Frame(t)
 		a.pack(side = LEFT)
@@ -369,12 +266,34 @@ class Bridge():
 		Entry(b, textvariable = self.yIntercept).pack(side = TOP)
 		
 		Button(b, command = partial(self.exitWindow,t), text = "OK").pack(side = BOTTOM)
-
+	def singlePlot(self, show):
+		f = open(self.filePathVar.get())
+		content = f.readlines()
+		time  = []
+		torque = []
+		
+		counter = 0
+		for line in content: ### Find which line the data starts on
+			counter = counter + 1
+			if line.find("DM_Start=") != -1:
+				break
+				
+		for x in xrange(counter,len(content)-1): ### Starting on the line number found from previous loop
+			y = content[x].split("\t") 
+			time.append(y[0])
+			torque.append(y[1])	
+		if show:		
+			plt.plot(time,torque)
+			plt.xlabel("Time (microseconds)")
+			plt.ylabel("Torque (inch-pounds)")
+			plt.title("Time vs. Torque")
+			plt.show()
+		return (time,torque)
 		
 	def saveAs(self):
 		print 'Please Select File:'
-		file_path = asksaveasfilename(defaultextension = '.txt', filetypes = [('Text Files','.txt')])
-		self.filePathVar.set(file_path)
+		self.file_path = asksaveasfilename(defaultextension = '.txt', filetypes = [('Text Files','.txt')])
+		self.filePathVar.set(self.file_path)
 	
 	def addPoint(self, frame):
 		x = calibrationPoint(frame)
@@ -413,7 +332,7 @@ class Bridge():
 	def reopenWindow(self, frame):
 		frame.update()
 		frame.reiconify()
-		
+			
 class calibrationPoint(Frame) :
 	def __init__(self, master):
 		self.bitValue = DoubleVar(0)
@@ -435,7 +354,6 @@ class calibrationPoint(Frame) :
 if __name__ == '__main__':
 	root = Tk()
 	root.wm_title("Gage Logger")
-		
 	app = SensorNetwork(master=root)
 	app.mainloop()
 
